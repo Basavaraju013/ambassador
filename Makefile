@@ -338,7 +338,7 @@ ambassador/ambassador/VERSION.py:
 version: ambassador/ambassador/VERSION.py
 
 TELEPROXY=venv/bin/teleproxy
-TELEPROXY_VERSION=0.4.0
+TELEPROXY_VERSION=0.4.6
 
 # This should maybe be replaced with a lighterweight dependency if we
 # don't currently depend on go
@@ -347,8 +347,9 @@ GOARCH=$(shell go env GOARCH)
 
 $(TELEPROXY):
 	curl -o $(TELEPROXY) https://s3.amazonaws.com/datawire-static-files/teleproxy/$(TELEPROXY_VERSION)/$(GOOS)/$(GOARCH)/teleproxy
-	sudo chown root $(TELEPROXY)
-	sudo chmod go-w,a+sx $(TELEPROXY)
+
+# 	sudo chown root $(TELEPROXY)
+# 	sudo chmod go-w,a+sx $(TELEPROXY)
 
 # This is for the docker image, so we don't use the current arch, we hardcode to linux/amd64
 $(WATT):
@@ -385,7 +386,7 @@ $(KAT_CLIENT):
 
 setup-develop: venv $(KAT_CLIENT) $(TELEPROXY) $(KUBERNAUT) $(WATT) version
 
-kill_teleproxy = $(shell kill -INT $$(/bin/ps -ef | fgrep venv/bin/teleproxy | fgrep -v grep | awk '{ print $$2 }') 2>/dev/null)
+kill_teleproxy = curl -s --connect-timeout 5 127.254.254.254/api/shutdown || true
 
 cluster.yaml: $(CLAIM_FILE)
 ifeq ($(USE_KUBERNAUT), true)
@@ -394,25 +395,24 @@ ifeq ($(USE_KUBERNAUT), true)
 	cp ~/.kube/$(CLAIM_NAME).yaml cluster.yaml
 endif
 
+setup-test: cluster-and-teleproxy
+
 cluster-and-teleproxy: cluster.yaml
 	rm -rf /tmp/k8s-*.yaml
-	@echo "Killing teleproxy"
-	$(call kill_teleproxy)
-	$(TELEPROXY) -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log || (echo "failed to start teleproxy"; cat /tmp/teleproxy.log) &
+	$(MAKE) teleproxy-restart
 	@echo "Sleeping for Teleproxy cluster"
 	sleep 10
 
-setup-test: cluster-and-teleproxy
-
 teleproxy-restart:
 	@echo "Killing teleproxy"
-	$(call kill_teleproxy)
+	$(kill_teleproxy)
 	sleep 0.25 # wait for exit...
-	@$(TELEPROXY) -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log || (echo "failed to start teleproxy"; cat /tmp/teleproxy.log) &
+	sudo id
+	sudo $(TELEPROXY) -noSearchOverride -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log || (echo "failed to start teleproxy"; cat /tmp/teleproxy.log) &
 	@echo "Done"
 
 teleproxy-stop:
-	$(call kill_teleproxy)
+	$(kill_teleproxy)
 	sleep 0.25 # wait for exit...
 	@if [ $$(ps -ef | grep venv/bin/teleproxy | grep -v grep | wc -l) -gt 0 ]; then \
 		echo "teleproxy still running" >&2; \
@@ -422,7 +422,7 @@ teleproxy-stop:
 		echo "teleproxy stopped" >&2; \
 	fi
 
-shell: setup-develop cluster-and-teleproxy
+shell: setup-develop
 	AMBASSADOR_DOCKER_IMAGE="$(AMBASSADOR_DOCKER_IMAGE)" \
 	AMBASSADOR_DOCKER_IMAGE_CACHED="$(AMBASSADOR_DOCKER_IMAGE_CACHED)" \
 	AMBASSADOR_BASE_IMAGE="$(AMBASSADOR_BASE_IMAGE)" \

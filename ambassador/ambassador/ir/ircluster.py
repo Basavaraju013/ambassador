@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-from typing import Any, ClassVar, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 from typing import cast as typecast
 
-import json
 import re
 import urllib.parse
 
@@ -188,31 +187,43 @@ class IRCluster (IRResource):
         self.logger.debug(f"Load balancer for {url} is {load_balancer}")
 
         enable_endpoints = False
+        lb_policy: Optional[str] = None
 
-        if self.endpoints_required(load_balancer):
-            if not Config.enable_endpoints:
-                # Bzzt.
-                errors.append(f"{service}: endpoint routing is not enabled, falling back to {global_load_balancer}")
-                load_balancer = global_load_balancer
-            else:
-                enable_endpoints = True
-                lb_type = load_balancer.get('policy')
+        if not Config.enable_endpoints:
+            if (resolver != 'kubernetes-service') or load_balancer:
+                errors.append(f"{service}: endpoint routing is not enabled, using service routing")
+                load_balancer = None
+                resolver = "kubernetes-service"
 
-                key_fields = ['er', lb_type.lower()]
+        if load_balancer:
+            if resolver == 'kubernetes-service':
+                errors.append(f"{service}: K8s service routing does not permit a load balancer")
+                load_balancer = None
 
-                # XXX Should we really include these things?
-                if 'header' in load_balancer:
-                    key_fields.append('hdr')
-                    key_fields.append(load_balancer['header'])
+        if load_balancer:
+            # If here, we're doing endpoint routing...
+            enable_endpoints = True
 
-                if 'cookie' in load_balancer:
-                    key_fields.append('cookie')
-                    key_fields.append(load_balancer['cookie']['name'])
+            # ...and we can default the policy to round_robin if we don't have one.
+            lb_policy = load_balancer.get('policy', 'round_robin')
 
-                if 'source_ip' in load_balancer:
-                    key_fields.append('srcip')
+            self.logger.debug(f"{service}: using endpoint routing with policy {lb_policy}")
 
-                name_fields.append("-".join(key_fields))
+            key_fields = ['er', typecast(str, lb_policy).lower()]
+
+            # XXX Should we really include these things?
+            if 'header' in load_balancer:
+                key_fields.append('hdr')
+                key_fields.append(load_balancer['header'])
+
+            if 'cookie' in load_balancer:
+                key_fields.append('cookie')
+                key_fields.append(load_balancer['cookie']['name'])
+
+            if 'source_ip' in load_balancer:
+                key_fields.append('srcip')
+
+            name_fields.append("-".join(key_fields))
 
         # Finally we can construct the cluster name.
         name = "_".join(name_fields)
@@ -292,18 +303,6 @@ class IRCluster (IRResource):
             return False
 
         return True
-
-    def endpoints_required(self, load_balancer) -> bool:
-        required = False
-
-        if load_balancer:
-            lb_policy = load_balancer.get('policy')
-
-            if lb_policy in ['round_robin', 'ring_hash', 'maglev']:
-                self.logger.debug("Endpoints are required for load balancing policy {}".format(lb_policy))
-                required = True
-
-        return required
 
     def add_url(self, url: str) -> List[str]:
         self.urls.append(url)

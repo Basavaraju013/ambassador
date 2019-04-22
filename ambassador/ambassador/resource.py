@@ -195,20 +195,20 @@ class Resource (dict):
 
         return resource_class(rkey, location=location, serialization=serialization, **attrs)
 
-    @classmethod
-    def from_yaml(cls: Type[R], rkey: str, location: str, serialization: str) -> R:
-        """
-        Create a Resource from a YAML serialization. The new Resource's rkey
-        and location must be handed in explicitly, and of course in this case the
-        serialization is mandatory.
-
-        Raises an exception if the serialization is not parseable.
-
-        :param rkey: unique identifier for this source, should be short
-        :param location: where should a human go to find the source of this resource?
-        :param serialization: original input serialization of obj
-        """
-
-        attrs = parse_yaml(serialization)
-
-        return cls.from_dict(rkey, location, serialization, attrs)
+    # @classmethod
+    # def from_yaml(cls: Type[R], rkey: str, location: str, serialization: str) -> R:
+    #     """
+    #     Create a Resource from a YAML serialization. The new Resource's rkey
+    #     and location must be handed in explicitly, and of course in this case the
+    #     serialization is mandatory.
+    #
+    #     Raises an exception if the serialization is not parseable.
+    #
+    #     :param rkey: unique identifier for this source, should be short
+    #     :param location: where should a human go to find the source of this resource?
+    #     :param serialization: original input serialization of obj
+    #     """
+    #
+    #     attrs = parse_yaml(serialization)
+    #
+    #     return cls.from_dict(rkey, location, serialization, attrs)

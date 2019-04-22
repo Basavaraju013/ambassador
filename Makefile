@@ -381,8 +381,7 @@ $(KAT_CLIENT):
 
 setup-develop: venv $(KAT_CLIENT) $(TELEPROXY) $(KUBERNAUT) $(WATT) version
 
-kill_teleproxy = $(shell kill -INT $$(/bin/ps -ef | fgrep venv/bin/teleproxy | fgrep -v grep | awk '{ print $$2 }') 2>/dev/null)
-
+kill_teleproxy = $(shell curl -s --connect-timeout 5 127.254.254.254/api/shutdown || true)
 cluster.yaml: $(CLAIM_FILE)
 ifeq ($(USE_KUBERNAUT), true)
 	$(KUBERNAUT_DISCARD)

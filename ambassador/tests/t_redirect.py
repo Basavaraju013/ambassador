@@ -94,8 +94,7 @@ prefix: /tls-target/
 service: {self.target.path.fqdn}
 """)
 
-class XFPRedirect(TLSRedirect):
-    parent: AmbassadorTest
+class XFPRedirect(RedirectTests):
     target: ServiceType
 
     def init(self):
@@ -119,8 +118,12 @@ service: foobar.com
 """)
 
     def queries(self):
-        yield Query(self.parent.url(self.name + "/target/"), headers={ "X-Forwarded-Proto": "http" }, expected=301)
-        yield Query(self.parent.url(self.name + "/target/"), headers={ "X-Forwarded-Proto": "https" }, expected=200)
+        yield Query(self.url(self.name + "/target/"), headers={ "X-Forwarded-Proto": "http" }, expected=301,
+                    # xfail="incomplete test"
+                    )
+        yield Query(self.url(self.name + "/target/"), headers={ "X-Forwarded-Proto": "https" }, expected=200,
+                    # xfail="incomplete test"
+                    )
 
     def check(self):
         assert self.results[0].headers['Location'] == [

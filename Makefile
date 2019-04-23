@@ -347,10 +347,9 @@ GOARCH=$(shell go env GOARCH)
 
 $(TELEPROXY):
 	curl -o $(TELEPROXY) https://s3.amazonaws.com/datawire-static-files/teleproxy/$(TELEPROXY_VERSION)/$(GOOS)/$(GOARCH)/teleproxy
-	find . -name teleproxy -ls
-
-# 	sudo chown root $(TELEPROXY)
-# 	sudo chmod go-w,a+sx $(TELEPROXY)
+ 	sudo chown root $(TELEPROXY)
+ 	sudo chmod go-w,a+x $(TELEPROXY)
+#  	sudo chmod go-w,a+sx $(TELEPROXY)
 
 # This is for the docker image, so we don't use the current arch, we hardcode to linux/amd64
 $(WATT):
@@ -414,7 +413,6 @@ teleproxy-restart:
 	@if [ $$(ps -ef | grep venv/bin/teleproxy | grep -v grep | wc -l) -le 0 ]; then \
 		echo "teleproxy did not start"; \
 		cat /tmp/teleproxy.log; \
-		find . -name teleproxy -print; \
 		exit 1; \
 	fi
 	@echo "Done"

@@ -337,7 +337,7 @@ ambassador/ambassador/VERSION.py:
 
 version: ambassador/ambassador/VERSION.py
 
-TELEPROXY=venv/bin/teleproxy
+TELEPROXY=$(shell pwd)/venv/bin/teleproxy
 TELEPROXY_VERSION=0.4.6
 
 # This should maybe be replaced with a lighterweight dependency if we
@@ -347,6 +347,7 @@ GOARCH=$(shell go env GOARCH)
 
 $(TELEPROXY):
 	curl -o $(TELEPROXY) https://s3.amazonaws.com/datawire-static-files/teleproxy/$(TELEPROXY_VERSION)/$(GOOS)/$(GOARCH)/teleproxy
+	find . -name teleproxy -ls
 
 # 	sudo chown root $(TELEPROXY)
 # 	sudo chmod go-w,a+sx $(TELEPROXY)
@@ -408,7 +409,7 @@ teleproxy-restart:
 	$(kill_teleproxy)
 	sleep 0.25 # wait for exit...
 	sudo id
-	sudo $(shell pwd)/$(TELEPROXY) -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log || (echo "failed to start teleproxy"; cat /tmp/teleproxy.log) &
+	sudo $(TELEPROXY) -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log || (echo "failed to start teleproxy"; cat /tmp/teleproxy.log) &
 	@echo "Done"
 
 teleproxy-stop:

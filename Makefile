@@ -409,7 +409,14 @@ teleproxy-restart:
 	$(kill_teleproxy)
 	sleep 0.25 # wait for exit...
 	sudo id
-	sudo $(TELEPROXY) -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log || (echo "failed to start teleproxy"; cat /tmp/teleproxy.log) &
+	sudo $(TELEPROXY) -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log &
+	sleep 0.5 # wait for start
+	@if [ $$(ps -ef | grep venv/bin/teleproxy | grep -v grep | wc -l) -le 0 ]; then \
+		echo "teleproxy did not start"; \
+		cat /tmp/teleproxy.log; \
+		find . -name teleproxy -print; \
+		exit 1; \
+	fi
 	@echo "Done"
 
 teleproxy-stop:

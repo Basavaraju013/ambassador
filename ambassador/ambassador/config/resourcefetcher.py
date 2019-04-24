@@ -38,7 +38,7 @@ HandlerResult = Optional[Tuple[str, List[AnyDict]]]
 #   address.
 
 class ResourceFetcher:
-    def __init__(self, logger: logging.Logger, aconf: 'Config') -> None:
+    def __init__(self, logger: logging.Logger, aconf: 'Config', save_raw=False) -> None:
         self.aconf = aconf
         self.logger = logger
         self.elements: List[ACResource] = []
@@ -49,6 +49,11 @@ class ResourceFetcher:
         self.k8s_endpoints: Dict[str, AnyDict] = {}
         self.k8s_services: Dict[str, AnyDict] = {}
         self.services: Dict[str, AnyDict] = {}
+
+        self.save_raw = save_raw
+
+        if self.save_raw:
+            self.raw_resources: List[AnyDict] = []
 
     @property
     def location(self):
@@ -62,7 +67,8 @@ class ResourceFetcher:
     def pop_location(self) -> None:
         self.filename, self.ocount = self.saved.pop()
 
-    def load_from_filesystem(self, config_dir_path, recurse: bool=False, k8s: bool=False):
+    def load_from_filesystem(self, config_dir_path, recurse: bool=False, k8s: bool=False,
+                             finalize: bool=True):
         inputs: List[Tuple[str, str]] = []
 
         if os.path.isdir(config_dir_path):
@@ -96,18 +102,19 @@ class ResourceFetcher:
             inputs.append((config_dir_path, os.path.basename(config_dir_path)))
 
         for filepath, filename in inputs:
-            self.logger.info("reading %s (%s)" % (filename, filepath))
+            self.logger.debug("reading %s (%s)" % (filename, filepath))
 
             try:
                 serialization = open(filepath, "r").read()
-                self.load_yaml(serialization, k8s=k8s, filename=filename)
+                self.load_yaml(serialization, k8s=k8s, filename=filename, finalize=False)
             except IOError as e:
                 self.aconf.post_error("could not read YAML from %s: %s" % (filepath, e))
 
-        self.finalize()
+        if finalize:
+            self.finalize()
 
     def load_yaml(self, serialization: str, k8s=False, rkey: Optional[str]=None,
-                  filename: Optional[str]=None) -> None:
+                  filename: Optional[str]=None, finalize: bool=True) -> None:
         # self.logger.debug("%s: parsing %d byte%s of YAML:\n%s" %
         #                   (self.location, len(serialization), "" if (len(serialization) == 1) else "s",
         #                    serialization))
@@ -118,7 +125,8 @@ class ResourceFetcher:
         except yaml.error.YAMLError as e:
             self.aconf.post_error("%s: could not parse YAML: %s" % (self.location, e))
 
-        self.finalize()
+        if finalize:
+            self.finalize()
 
     def load_json(self, serialization: str, k8s=False, rkey: Optional[str]=None,
                   filename: Optional[str]=None) -> None:
@@ -134,7 +142,7 @@ class ResourceFetcher:
 
         self.finalize()
 
-    def parse_watt(self, serialization: str) -> None:
+    def load_watt(self, serialization: str, finalize: bool=True) -> None:
         try:
             watt_dict = json.loads(serialization)
 
@@ -158,7 +166,8 @@ class ResourceFetcher:
         except json.decoder.JSONDecodeError as e:
             self.aconf.post_error("%s: could not parse WATT: %s" % (self.location, e))
 
-        self.finalize()
+        if finalize:
+            self.finalize()
 
     def handle_k8s(self, obj: dict) -> None:
         # self.logger.debug("handle_k8s obj %s" % json.dumps(obj, indent=4, sort_keys=True))
@@ -169,11 +178,13 @@ class ResourceFetcher:
             # self.logger.debug("%s: ignoring K8s object, no kind" % self.location)
             return
 
+        name = obj.get('metadata', {}).get('name', '-no-name-')
+
         handler_name = f'handle_k8s_{kind.lower()}'
         handler = getattr(self, handler_name, None)
 
         if not handler:
-            # self.logger.debug("%s: ignoring K8s object, no kind" % self.location)
+            self.logger.debug("%s: ignoring K8s %s object %s, no handler" % (self.location, kind, name))
             return
 
         result = handler(obj)
@@ -190,7 +201,7 @@ class ResourceFetcher:
         # self.logger.debug("PARSE_OBJECT: incoming %d" % len(objects))
 
         for obj in objects:
-            self.logger.debug("PARSE_OBJECT: checking %s" % obj)
+            # self.logger.debug("PARSE_OBJECT: checking %s" % obj)
 
             if k8s:
                 self.handle_k8s(obj)
@@ -225,6 +236,10 @@ class ResourceFetcher:
 
         # self.logger.debug("%s PROCESS %s initial rkey %s" % (self.location, obj['kind'], rkey))
 
+        # Save this if we're saving raw resources.
+        if self.save_raw:
+            self.raw_resources.append(obj)
+
         # Is this a pragma object?
         if obj['kind'] == 'Pragma':
             # Why did I think this was a good idea? [ :) ]
@@ -252,7 +267,7 @@ class ResourceFetcher:
         r = ACResource.from_dict(rkey, rkey, serialization, obj)
         self.elements.append(r)
 
-        # self.logger.debug("%s PROCESS %s save %s: %s" % (self.location, obj['kind'], rkey, serialization))
+        self.logger.debug("%s PROCESS %s saved %s: %s" % (self.location, obj['kind'], rkey, serialization))
 
     def sorted(self, key=lambda x: x.rkey):  # returns an iterator, probably
         return sorted(self.elements, key=key)

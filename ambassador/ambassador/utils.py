@@ -62,7 +62,7 @@ def parse_yaml(serialization: str, **kwargs) -> List[Any]:
     if not yaml_logged_loader:
         yaml_logged_loader = True
 
-        logger.info("YAML: using %s parser" % ("Python" if (yaml_loader == yaml.SafeLoader) else "C"))
+        logger.debug("YAML: using %s parser" % ("Python" if (yaml_loader == yaml.SafeLoader) else "C"))
 
     return list(yaml.load_all(serialization, Loader=yaml_loader))
 
@@ -73,7 +73,7 @@ def dump_yaml(obj: Any, **kwargs) -> str:
     if not yaml_logged_dumper:
         yaml_logged_dumper = True
 
-        logger.info("YAML: using %s dumper" % ("Python" if (yaml_dumper == yaml.SafeDumper) else "C"))
+        logger.debug("YAML: using %s dumper" % ("Python" if (yaml_dumper == yaml.SafeDumper) else "C"))
 
     return yaml.dump(obj, Dumper=yaml_dumper, **kwargs)
 

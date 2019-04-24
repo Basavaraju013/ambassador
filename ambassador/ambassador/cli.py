@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-from typing import Optional
+from typing import Any, Dict, Optional
 from typing import cast as typecast
 
 import sys
@@ -20,7 +20,6 @@ import sys
 import json
 import logging
 import os
-import signal
 import traceback
 
 import clize
@@ -31,7 +30,7 @@ from .config.resourcefetcher import ResourceFetcher
 from .envoy import EnvoyConfig, V2Config
 from .ir.irtlscontext import IRTLSContext
 
-from .utils import RichStatus, SecretInfo, SecretHandler
+from .utils import RichStatus, SecretInfo, SecretHandler, dump_yaml
 
 __version__ = Version
 
@@ -115,7 +114,7 @@ class CLISecretHandler(SecretHandler):
 
 def dump(config_dir_path: Parameter.REQUIRED, *,
          debug=False, debug_scout=False, k8s=False, recurse=False,
-         aconf=False, ir=False, v2=False, diag=False, features=False):
+         aconf=False, ir=False, v2=False, diag=False, features=False, raw=False):
     """
     Dump various forms of an Ambassador configuration for debugging
 
@@ -132,6 +131,7 @@ def dump(config_dir_path: Parameter.REQUIRED, *,
     :param v2: If set, dump the Envoy V2 config
     :param diag: If set, dump the Diagnostics overview
     :param features: If set, dump the feature set
+    :param raw: If set, dump the raw Ambassador input resources
     """
 
     if debug:
@@ -140,12 +140,8 @@ def dump(config_dir_path: Parameter.REQUIRED, *,
     if debug_scout:
         logging.getLogger('ambassador.scout').setLevel(logging.DEBUG)
 
-    if not (aconf or ir or v2 or diag or features):
-        aconf = True
+    if not (aconf or ir or v2 or diag or features or raw):
         ir = True
-        v2 = True
-        diag = False
-        features = False
 
     dump_aconf = aconf
     dump_ir = ir
@@ -153,17 +149,25 @@ def dump(config_dir_path: Parameter.REQUIRED, *,
     dump_diag = diag
     dump_features = features
 
-    od = {}
+    od: Dict[str, Any] = {}
     diagconfig: Optional[EnvoyConfig] = None
 
     try:
         aconf = Config()
-        fetcher = ResourceFetcher(logger, aconf)
-        fetcher.load_from_filesystem(config_dir_path, k8s=k8s, recurse=True)
+        fetcher = ResourceFetcher(logger, aconf, save_raw=raw)
+        fetcher.load_from_filesystem(config_dir_path, k8s=k8s, recurse=recurse)
         aconf.load_all(fetcher.sorted())
 
-        # aconf.post_error("Error from string, boo yah")
-        # aconf.post_error(RichStatus.fromError("Error from RichStatus"))
+        print_od = True
+
+        if raw:
+            raw_yaml = dump_yaml(fetcher.raw_resources)
+
+            if dump_aconf or dump_ir or dump_v2 or dump_diag or dump_features:
+                od['raw'] = raw_yaml
+            else:
+                print_od = False
+                print(raw_yaml)
 
         if dump_aconf:
             od['aconf'] = aconf.as_dict()
@@ -201,8 +205,9 @@ def dump(config_dir_path: Parameter.REQUIRED, *,
         # result = scout.report(action="dump", mode="cli", **scout_args)
         # show_notices(result)
 
-        json.dump(od, sys.stdout, sort_keys=True, indent=4)
-        sys.stdout.write("\n")
+        if print_od:
+            json.dump(od, sys.stdout, sort_keys=True, indent=4)
+            sys.stdout.write("\n")
     except Exception as e:
         handle_exception("EXCEPTION from dump", e,
                          config_dir_path=config_dir_path)

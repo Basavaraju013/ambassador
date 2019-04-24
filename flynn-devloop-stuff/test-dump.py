@@ -51,7 +51,7 @@ yamlpath = sys.argv[1] if len(sys.argv) > 1 else "consul-3.yaml"
 
 aconf = Config()
 fetcher = ResourceFetcher(logger, aconf)
-fetcher.parse_watt(open(yamlpath, "r").read())
+fetcher.load_watt(open(yamlpath, "r").read())
 
 aconf.load_all(fetcher.sorted())
 

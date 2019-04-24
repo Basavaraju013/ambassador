@@ -695,7 +695,7 @@ class AmbassadorEventWatcher(threading.Thread):
         fetcher = ResourceFetcher(app.logger, aconf)
 
         if serialization:
-            fetcher.parse_watt(serialization)
+            fetcher.load_watt(serialization)
 
         if not fetcher.elements:
             self.logger.debug("no configuration found in snapshot %s" % snapshot)

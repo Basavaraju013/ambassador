@@ -102,7 +102,7 @@ if len(sys.argv) > 1:
 
 aconf = Config()
 fetcher = ResourceFetcher(logger, aconf)
-fetcher.parse_watt(yaml_stream.read())
+fetcher.load_watt(yaml_stream.read())
 
 aconf.load_all(fetcher.sorted())
 

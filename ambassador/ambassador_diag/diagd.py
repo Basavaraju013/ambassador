@@ -611,7 +611,7 @@ class AmbassadorEventWatcher(threading.Thread):
         self.logger.info("loading configuration from disk: %s" % path)
 
         snapshot = re.sub(r'[^A-Za-z0-9_-]', '_', path)
-        scc = FSSecretHandler(app.logger, path, app.snapshot_path, 0)
+        scc = FSSecretHandler(app.logger, path, app.snapshot_path, "0")
 
         aconf = Config()
         fetcher = ResourceFetcher(app.logger, aconf)
@@ -660,7 +660,7 @@ class AmbassadorEventWatcher(threading.Thread):
 
         aconf = Config()
         fetcher = ResourceFetcher(app.logger, aconf)
-        fetcher.parse_yaml(serialization, k8s=True)
+        fetcher.load_yaml(serialization, k8s=True)
 
         if not fetcher.elements:
             self.logger.debug("no configuration found in snapshot %s" % snapshot)

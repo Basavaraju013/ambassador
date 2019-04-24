@@ -100,14 +100,14 @@ class ResourceFetcher:
 
             try:
                 serialization = open(filepath, "r").read()
-                self.parse_yaml(serialization, k8s=k8s, filename=filename)
+                self.load_yaml(serialization, k8s=k8s, filename=filename)
             except IOError as e:
                 self.aconf.post_error("could not read YAML from %s: %s" % (filepath, e))
 
         self.finalize()
 
-    def parse_yaml(self, serialization: str, k8s=False, rkey: Optional[str]=None,
-                   filename: Optional[str]=None) -> None:
+    def load_yaml(self, serialization: str, k8s=False, rkey: Optional[str]=None,
+                  filename: Optional[str]=None) -> None:
         # self.logger.debug("%s: parsing %d byte%s of YAML:\n%s" %
         #                   (self.location, len(serialization), "" if (len(serialization) == 1) else "s",
         #                    serialization))
@@ -120,8 +120,8 @@ class ResourceFetcher:
 
         self.finalize()
 
-    def parse_json(self, serialization: str=False, rkey: Optional[str]=None,
-                   filename: Optional[str]=None) -> None:
+    def load_json(self, serialization: str, k8s=False, rkey: Optional[str]=None,
+                  filename: Optional[str]=None) -> None:
         # self.logger.debug("%s: parsing %d byte%s of YAML:\n%s" %
         #                   (self.location, len(serialization), "" if (len(serialization) == 1) else "s",
         #                    serialization))

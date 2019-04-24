@@ -38,7 +38,7 @@ else
 	echo "No debug branch is set"
 fi
 
-if [ -z "$teardown" ]; then
+if [ -n "$teardown" ]; then
 	make clean-test
 fi
 

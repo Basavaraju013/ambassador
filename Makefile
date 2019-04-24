@@ -347,9 +347,20 @@ GOARCH=$(shell go env GOARCH)
 
 $(TELEPROXY):
 	curl -o $(TELEPROXY) https://s3.amazonaws.com/datawire-static-files/teleproxy/$(TELEPROXY_VERSION)/$(GOOS)/$(GOARCH)/teleproxy
+	sudo chown root $(TELEPROXY)
+ifeq ($(shell uname -s), Darwin)
+	sudo chmod go-w,a+x $(TELEPROXY)	# no SUID here
+else
+	sudo chmod go-w,a+sx $(TELEPROXY)	# SUID here
+endif
 
-# 	sudo chown root $(TELEPROXY)
-# 	sudo chmod go-w,a+sx $(TELEPROXY)
+kill_teleproxy = curl -s --connect-timeout 5 127.254.254.254/api/shutdown || true
+
+ifeq ($(shell uname -s), Darwin)
+run_teleproxy = sudo id; sudo $(TELEPROXY)
+else
+run_teleproxy = $(TELEPROXY)
+endif
 
 # This is for the docker image, so we don't use the current arch, we hardcode to linux/amd64
 $(WATT):
@@ -386,8 +397,6 @@ $(KAT_CLIENT):
 
 setup-develop: venv $(KAT_CLIENT) $(TELEPROXY) $(KUBERNAUT) $(WATT) version
 
-kill_teleproxy = curl -s --connect-timeout 5 127.254.254.254/api/shutdown || true
-
 cluster.yaml: $(CLAIM_FILE)
 ifeq ($(USE_KUBERNAUT), true)
 	$(KUBERNAUT_DISCARD)
@@ -407,8 +416,13 @@ teleproxy-restart:
 	@echo "Killing teleproxy"
 	$(kill_teleproxy)
 	sleep 0.25 # wait for exit...
-	sudo id
-	sudo $(TELEPROXY) -noSearchOverride -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log || (echo "failed to start teleproxy"; cat /tmp/teleproxy.log) &
+	$(run_teleproxy) -kubeconfig $(KUBECONFIG) 2> /tmp/teleproxy.log &
+	sleep 0.5 # wait for start
+	@if [ $$(ps -ef | grep venv/bin/teleproxy | grep -v grep | wc -l) -le 0 ]; then \
+		echo "teleproxy did not start"; \
+		cat /tmp/teleproxy.log; \
+		exit 1; \
+	fi
 	@echo "Done"
 
 teleproxy-stop:

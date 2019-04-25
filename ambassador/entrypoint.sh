@@ -63,7 +63,7 @@ DIAGD_CONFIGDIR=
 
 echo "AMBASSADOR STARTING with environment:"
 echo "===="
-env | sort
+env | grep AMBASSADOR | sort
 echo "===="
 
 if [ "$1" == "--demo" ]; then
